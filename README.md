@@ -1,4 +1,10 @@
 # MNIST Digit Classification with PyTorch
+
+[![ML Pipeline](https://github.com/shrits-ai/assign5MNIST/actions/workflows/ml-pipeline.yml/badge.svg)](https://github.com/shrits-ai/assign5MNIST/actions/workflows/ml-pipeline.yml)
+![Python](https://img.shields.io/badge/python-v3.8+-blue.svg)
+[![GitHub issues](https://img.shields.io/github/issues/shrits-ai/assign5MNIST)](https://github.com/shrits-ai/assign5MNIST/issues)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 This README provides:
 
 Clear model architecture description
