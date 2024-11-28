@@ -3,6 +3,7 @@ import pytest
 import sys
 import os
 import glob
+import numpy as np
 
 # Add the project root directory to Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -167,3 +168,53 @@ def test_model_accuracy_95():
         
     except Exception as e:
         pytest.skip(f"Error during accuracy testing: {str(e)}")
+
+def test_image_augmentation():
+    """Test that image augmentation is being applied"""
+    ssl._create_default_https_context = ssl._create_unverified_context
+    
+    # Original dataset without augmentation
+    original_transform = transforms.ToTensor()
+    original_dataset = datasets.MNIST('./data', train=True, download=True, 
+                                   transform=original_transform)
+    
+    # Dataset with augmentation
+    augment_transform = transforms.Compose([
+        transforms.RandomRotation(7),
+        transforms.ToTensor(),
+        transforms.Normalize((0.1307,), (0.3081,))
+    ])
+    augmented_dataset = datasets.MNIST('./data', train=True, download=True, 
+                                     transform=augment_transform)
+    
+    # Get same image from both datasets
+    idx = 0
+    original_img, _ = original_dataset[idx]
+    augmented_img, _ = augmented_dataset[idx]
+    
+    # Convert to numpy for comparison
+    original_img = original_img.numpy()
+    augmented_img = augmented_img.numpy()
+    
+    # Test that images are different (augmentation was applied)
+    assert not torch.allclose(torch.tensor(original_img), torch.tensor(augmented_img)), \
+        "Augmentation did not modify the image"
+    
+    # Test that augmented image has correct shape
+    assert augmented_img.shape == (1, 28, 28), \
+        f"Augmented image has wrong shape: {augmented_img.shape}, should be (1, 28, 28)"
+    
+    # Test that augmented image values are normalized
+    assert augmented_img.mean() != original_img.mean(), \
+        "Normalization was not applied"
+    
+    # Test multiple images to ensure randomness
+    different_augmentations = []
+    for _ in range(5):
+        aug_img, _ = augmented_dataset[idx]
+        different_augmentations.append(aug_img.numpy())
+    
+    # Check that at least some augmentations are different from each other
+    all_same = all(np.array_equal(different_augmentations[0], img) 
+                  for img in different_augmentations[1:])
+    assert not all_same, "Random augmentation is not producing different results"
