@@ -21,7 +21,7 @@ jobs:
     
     - name: Train model
       run: |
-        python train.py
+        python train.py --epochs 1
     
     - name: Run tests
       run: |

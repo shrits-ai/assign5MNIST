@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 from tqdm import tqdm
+import argparse
 
 def show_augmented_images(original_dataset, augmented_dataset, num_images=5, show_plot=False):
     if not show_plot:
@@ -157,4 +158,16 @@ def train(num_epochs=1, show_plot=False):
     print(f'Model saved as: {model_path}')
     
 if __name__ == "__main__":
-    train(show_plot=False)
+    # Add argument parser
+    parser = argparse.ArgumentParser(description='MNIST Training Script')
+    parser.add_argument('--epochs', type=int, default=1,
+                      help='number of epochs to train (default: 1)')
+    parser.add_argument('--show-plot', action='store_true',
+                      help='show augmented images plot')
+    
+    args = parser.parse_args()
+    
+    print(f"\nTraining for {args.epochs} epoch{'s' if args.epochs > 1 else ''}")
+    print("-" * 50)
+    
+    train(num_epochs=args.epochs, show_plot=args.show_plot)
