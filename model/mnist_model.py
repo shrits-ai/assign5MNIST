@@ -5,24 +5,24 @@ class MNISTModel(nn.Module):
     def __init__(self):
         super(MNISTModel, self).__init__()
         
-        # First conv block
-        self.conv1 = nn.Conv2d(1, 12, kernel_size=3, padding=1)
-        self.bn1 = nn.BatchNorm2d(12)
+        # First conv block with more filters
+        self.conv1 = nn.Conv2d(1, 16, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm2d(16)
         
-        # Second conv block
-        self.conv2 = nn.Conv2d(12, 20, kernel_size=3, padding=1)
-        self.bn2 = nn.BatchNorm2d(20)
+        # Second conv block with more filters
+        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm2d(32)
         
-        # Third conv block for more feature extraction
-        self.conv3 = nn.Conv2d(20, 24, kernel_size=3, padding=1)
-        self.bn3 = nn.BatchNorm2d(24)
+        # Reduced size third conv for parameter efficiency
+        self.conv3 = nn.Conv2d(32, 16, kernel_size=3, padding=1)
+        self.bn3 = nn.BatchNorm2d(16)
         
-        # Fully connected layers
-        self.fc1 = nn.Linear(24 * 3 * 3, 120)
-        self.fc2 = nn.Linear(120, 10)
+        # Adjusted FC layers
+        self.fc1 = nn.Linear(16 * 3 * 3, 100)
+        self.fc2 = nn.Linear(100, 10)
         
         self.pool = nn.MaxPool2d(2, 2)
-        self.dropout = nn.Dropout(0.25)
+        self.dropout = nn.Dropout(0.2)  # Reduced dropout
         self.relu = nn.ReLU()
         
     def forward(self, x):
@@ -45,7 +45,7 @@ class MNISTModel(nn.Module):
         x = self.pool(x)
         
         # Flatten and FC layers
-        x = x.view(-1, 24 * 3 * 3)
+        x = x.view(-1, 16 * 3 * 3)
         x = self.dropout(x)
         x = self.relu(self.fc1(x))
         x = self.dropout(x)
