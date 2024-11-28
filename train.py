@@ -12,24 +12,19 @@ def train(num_epochs=5):
     
     device = torch.device('cpu')
     
-    # Enhanced data augmentation
+    # Simpler data augmentation
     transform = transforms.Compose([
-        transforms.RandomRotation(15),
-        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.9, 1.1)),
+        transforms.RandomRotation(10),
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
     ])
     
     train_dataset = datasets.MNIST('./data', train=True, download=True, transform=transform)
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=64)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32)  # Smaller batch size
     
     model = MNISTModel().to(device)
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.002, weight_decay=1e-4)
-    scheduler = optim.lr_scheduler.OneCycleLR(optimizer, 
-                                            max_lr=0.002,
-                                            epochs=num_epochs,
-                                            steps_per_epoch=len(train_loader))
+    optimizer = optim.Adam(model.parameters(), lr=0.001)  # Standard learning rate
     
     best_accuracy = 0.0
     best_model_path = None
@@ -59,7 +54,7 @@ def train(num_epochs=5):
             correct += (predicted == target).sum().item()
             running_loss += loss.item()
             
-            if batch_idx % 50 == 0:
+            if batch_idx % 100 == 0:
                 accuracy = 100 * correct / total
                 avg_loss = running_loss / (batch_idx + 1)
                 print(f'Batch {batch_idx}/{len(train_loader)}, Loss: {avg_loss:.4f}, Accuracy: {accuracy:.2f}%')
@@ -80,13 +75,10 @@ def train(num_epochs=5):
             best_model_path = f'saved_models/mnist_model_{timestamp}_epoch{epoch+1}_acc{epoch_accuracy:.1f}.pth'
             torch.save(model.state_dict(), best_model_path)
             print(f'New best model saved: {best_model_path}')
-        
-        # Update learning rate
-        scheduler.step()
     
     print(f'\nTraining completed:')
     print(f'Best Training Accuracy: {best_accuracy:.2f}%')
     print(f'Best model saved as: {best_model_path}')
     
 if __name__ == "__main__":
-    train(num_epochs=1)  # Set number of epochs here
+    train(num_epochs=1)  
