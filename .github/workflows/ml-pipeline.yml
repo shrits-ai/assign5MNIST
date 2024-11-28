@@ -17,7 +17,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install torch torchvision pytest matplotlib numpy
+        pip install torch torchvision pytest matplotlib numpy tqdm
     
     - name: Train model
       run: |

@@ -46,10 +46,10 @@ def train(num_epochs=1, show_plot=False):
     original_dataset = datasets.MNIST('./data', train=True, download=True, 
                                    transform=transforms.ToTensor())
     
-    # Enhanced data augmentation
+    # Simpler but effective data augmentation
     transform = transforms.Compose([
         transforms.RandomRotation(10),
-        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.95, 1.05)),
+        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
     ])
@@ -60,33 +60,25 @@ def train(num_epochs=1, show_plot=False):
         print("Displaying original and augmented images...")
         show_augmented_images(original_dataset, train_dataset, show_plot=show_plot)
     
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=128, shuffle=True)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True)
     
     model = MNISTModel().to(device)
     criterion = nn.CrossEntropyLoss()
     
-    # Optimizer with higher learning rate
-    optimizer = optim.AdamW(model.parameters(), lr=0.003, weight_decay=0.01)
+    # Simple but effective optimizer
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
     
-    # Modified learning rate scheduler
-    scheduler = optim.lr_scheduler.OneCycleLR(
-        optimizer,
-        max_lr=0.01,
-        steps_per_epoch=len(train_loader),
-        epochs=1,
-        pct_start=0.1,  # Warm up faster
-        anneal_strategy='cos',
-        div_factor=10.0,
-        final_div_factor=100.0
-    )
+    # Cosine annealing scheduler
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, 
+                                                    T_max=len(train_loader),
+                                                    eta_min=1e-4)
     
     model.train()
     correct = 0
     total = 0
     running_loss = 0.0
-    batch_accuracies = []  # Store batch accuracies
+    batch_accuracies = []
     
-    # Add progress bar
     pbar = tqdm(train_loader, desc='Training')
     
     print("\nBatch-wise Accuracies:")
@@ -100,7 +92,8 @@ def train(num_epochs=1, show_plot=False):
         loss = criterion(output, target)
         loss.backward()
         
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.5)
+        # Gradient clipping
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         
         optimizer.step()
         scheduler.step()
@@ -123,7 +116,7 @@ def train(num_epochs=1, show_plot=False):
         
         # Store and print batch accuracy
         batch_accuracies.append(batch_accuracy)
-        if batch_idx % 10 == 0:  # Print every 10 batches
+        if batch_idx % 10 == 0:
             print(f"Batch {batch_idx:3d}: Accuracy = {batch_accuracy:6.2f}% | Running Accuracy = {running_accuracy:6.2f}%")
         
         # Update progress bar
