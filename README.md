@@ -9,8 +9,6 @@ Test case explanations
 
 Usage instructions
 
-Project structure
-
 Performance metrics
 
 All requirements and constraints
@@ -60,27 +58,7 @@ The project includes comprehensive testing:
    - `test_model_accuracy`: Ensures accuracy > 80%
    - `test_model_accuracy_95`: Verifies accuracy > 95%
 
-## Project Structure
-.
-├── model/
-|
-│ ├── init.py
-| |
-│ └── mnist_model.py
-|
-├── tests/
-| |
-│ └── test_model.py
-|
-├── train.py
-|
-├── requirements.txt
-|
-└── .github/|
-|
-└── workflows/
-|
-└── ml-pipeline.yml
+
 
 ## Usage
 
