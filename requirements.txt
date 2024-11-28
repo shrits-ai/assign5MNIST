@@ -3,3 +3,4 @@ torchvision
 pytest
 matplotlib
 numpy
+tqdm

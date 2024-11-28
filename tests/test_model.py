@@ -24,6 +24,32 @@ def test_input_output_shape():
     output = model(test_input)
     assert output.shape == (1, 10), f"Output shape is {output.shape}, should be (1, 10)"
 
+def test_batch_processing():
+    model = MNISTModel()
+    batch_size = 32
+    test_input = torch.randn(batch_size, 1, 28, 28)
+    output = model(test_input)
+    assert output.shape == (batch_size, 10), f"Batch output shape is {output.shape}, should be ({batch_size}, 10)"
+
+def test_output_range():
+    model = MNISTModel()
+    test_input = torch.randn(1, 1, 28, 28)
+    output = model(test_input)
+    
+    # Test if output is proper logits (before softmax)
+    assert not torch.any(output > 100), "Output values too large"
+    assert not torch.any(output < -100), "Output values too small"
+    
+    # Test if softmax gives valid probabilities
+    probabilities = torch.softmax(output, dim=1)
+    assert torch.allclose(probabilities.sum(), torch.tensor(1.0)), "Probabilities don't sum to 1"
+    assert torch.all(probabilities >= 0) and torch.all(probabilities <= 1), "Invalid probability values"
+
+def test_model_parameter_limit_25k():
+    model = MNISTModel()
+    param_count = count_parameters(model)
+    assert param_count < 25000, f"Model has {param_count} parameters, should be less than 25000"
+
 def test_model_accuracy():
     ssl._create_default_https_context = ssl._create_unverified_context
     
