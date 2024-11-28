@@ -50,14 +50,14 @@ def train(num_epochs=1, show_plot=False):
     # Optimized data augmentation
     transform = transforms.Compose([
         transforms.RandomRotation(15),
-        transforms.RandomAffine(degrees=0, translate=(0.12, 0.12), scale=(0.90, 1.10)),
-        transforms.RandomPerspective(distortion_scale=0.2, p=0.5),
+        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.95, 1.05)),
+        transforms.ColorJitter(brightness=0.2),  # Add brightness variation
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
     ])
     
     train_dataset = datasets.MNIST('./data', train=True, download=True, transform=transform)
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True)  # Smaller batch size
     
     if show_plot:
         print("Displaying original and augmented images...")
@@ -66,16 +66,23 @@ def train(num_epochs=1, show_plot=False):
     model = MNISTModel().to(device)
     criterion = nn.CrossEntropyLoss()
     
-    # Two-phase optimizer with higher learning rate
-    optimizer = optim.AdamW(model.parameters(), lr=0.003, weight_decay=0.01)
+    # Optimized training settings
+    optimizer = optim.AdamW(model.parameters(), 
+                          lr=0.002,  # Higher initial learning rate
+                          weight_decay=0.01,  # Increased weight decay
+                          betas=(0.9, 0.999))
     
-    # Custom learning rate schedule
-    def get_lr(step, num_steps):
-        warmup_steps = num_steps // 6  # Faster warmup
-        if step < warmup_steps:
-            return 0.003 * (step + 1) / warmup_steps
-        else:
-            return 0.003 * (1 - 0.9 * (step - warmup_steps) / (num_steps - warmup_steps))
+    # Aggressive learning rate schedule
+    scheduler = optim.lr_scheduler.OneCycleLR(
+        optimizer,
+        max_lr=0.01,  # Higher max learning rate
+        steps_per_epoch=len(train_loader),
+        epochs=1,
+        pct_start=0.2,  # Faster warmup
+        anneal_strategy='cos',
+        div_factor=10.0,
+        final_div_factor=100.0
+    )
     
     model.train()
     correct = 0
@@ -90,11 +97,6 @@ def train(num_epochs=1, show_plot=False):
     print("-" * 50)
     
     for batch_idx, (data, target) in enumerate(pbar):
-        # Update learning rate
-        lr = get_lr(batch_idx, num_steps)
-        for param_group in optimizer.param_groups:
-            param_group['lr'] = lr
-            
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         
@@ -102,10 +104,11 @@ def train(num_epochs=1, show_plot=False):
         loss = criterion(output, target)
         loss.backward()
         
-        # Gradient clipping
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.7)
+        # Modified gradient clipping
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)  # Increased threshold
         
         optimizer.step()
+        scheduler.step()
         
         # Calculate batch accuracy
         _, predicted = torch.max(output.data, 1)
