@@ -5,47 +5,44 @@ class MNISTModel(nn.Module):
     def __init__(self):
         super(MNISTModel, self).__init__()
         
-        # VGG-style architecture with reduced capacity
-        self.features = nn.Sequential(
-            # Block 1: Initial feature extraction
-            nn.Conv2d(1, 8, kernel_size=3, padding=1),    # Reduced to 8
-            nn.BatchNorm2d(8),
-            nn.ReLU(),
-            
-            # Block 2: Slight increase
-            nn.Conv2d(8, 12, kernel_size=3, padding=1),   # Reduced to 12
-            nn.BatchNorm2d(12),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2),  # 28x28 -> 14x14
-            
-            # Block 3: Moderate capacity
-            nn.Conv2d(12, 16, kernel_size=3, padding=1),  # Reduced to 16
-            nn.BatchNorm2d(16),
-            nn.ReLU(),
-            
-            # Block 4: Peak features
-            nn.Conv2d(16, 20, kernel_size=3, padding=1),  # Reduced to 20
-            nn.BatchNorm2d(20),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2),  # 14x14 -> 7x7
-            
-            # Block 5: Feature refinement
-            nn.Conv2d(20, 12, kernel_size=3, padding=1),  # Reduced to 12
-            nn.BatchNorm2d(12),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2)   # 7x7 -> 3x3
-        )
+        # First conv layer with batch norm and pooling
+        self.conv1 = nn.Conv2d(1, 10, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm2d(10)
+        self.pool1 = nn.MaxPool2d(2, 2)  # 28x28 -> 14x14
         
-        # Efficient classifier
-        self.classifier = nn.Sequential(
-            nn.Linear(12 * 3 * 3, 32),  # Reduced to 32
-            nn.ReLU(),
-            nn.Dropout(0.15),
-            nn.Linear(32, 10)
-        )
+        # Second conv layer with batch norm and pooling
+        self.conv2 = nn.Conv2d(10, 10, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm2d(10)
+        self.pool2 = nn.MaxPool2d(2, 2)  # 14x14 -> 7x7
+        
+        # Fully connected layers with batch norm
+        self.fc1 = nn.Linear(10 * 7 * 7, 32)  # Reduced size due to second pooling
+        self.bn3 = nn.BatchNorm1d(32)
+        self.fc2 = nn.Linear(32, 10)
+        
+        # Dropout and activation
+        self.dropout = nn.Dropout(0.1)
+        self.relu = nn.ReLU()
         
     def forward(self, x):
-        x = self.features(x)
-        x = x.view(-1, 12 * 3 * 3)
-        x = self.classifier(x)
+        # First conv block
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.pool1(x)  # 28x28 -> 14x14
+        
+        # Second conv block
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = self.relu(x)
+        x = self.pool2(x)  # 14x14 -> 7x7
+        
+        # Flatten and FC layers
+        x = x.view(-1, 10 * 7 * 7)  # Adjusted size
+        x = self.dropout(x)
+        x = self.fc1(x)
+        x = self.bn3(x)
+        x = self.relu(x)
+        x = self.dropout(x)
+        x = self.fc2(x)
         return x 

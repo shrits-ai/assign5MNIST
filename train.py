@@ -38,7 +38,23 @@ def show_augmented_images(original_dataset, augmented_dataset, num_images=5, sho
     plt.tight_layout()
     plt.show()
 
-def train(num_epochs=1, show_plot=False):
+def evaluate_model(model, test_loader, device):
+    model.eval()
+    correct = 0
+    total = 0
+    
+    with torch.no_grad():
+        for data, target in test_loader:
+            data, target = data.to(device), target.to(device)
+            outputs = model(data)
+            _, predicted = torch.max(outputs.data, 1)
+            total += target.size(0)
+            correct += (predicted == target).sum().item()
+    
+    accuracy = 100 * correct / total
+    return accuracy
+
+def train(num_epochs=15, show_plot=False):
     ssl._create_default_https_context = ssl._create_unverified_context
     
     device = torch.device('cpu')
@@ -47,17 +63,15 @@ def train(num_epochs=1, show_plot=False):
     original_dataset = datasets.MNIST('./data', train=True, download=True, 
                                    transform=transforms.ToTensor())
     
-    # Optimized data augmentation
+    # Minimal augmentation
     transform = transforms.Compose([
-        transforms.RandomRotation(15),
-        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.95, 1.05)),
-        transforms.ColorJitter(brightness=0.2),  # Add brightness variation
+        transforms.RandomRotation(7),  # Very small rotation
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
     ])
     
     train_dataset = datasets.MNIST('./data', train=True, download=True, transform=transform)
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True)  # Smaller batch size
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=64, shuffle=True)
     
     if show_plot:
         print("Displaying original and augmented images...")
@@ -66,22 +80,22 @@ def train(num_epochs=1, show_plot=False):
     model = MNISTModel().to(device)
     criterion = nn.CrossEntropyLoss()
     
-    # Optimized training settings
-    optimizer = optim.AdamW(model.parameters(), 
-                          lr=0.002,  # Higher initial learning rate
-                          weight_decay=0.01,  # Increased weight decay
-                          betas=(0.9, 0.999))
+    # Simple but effective optimizer
+    optimizer = optim.SGD(
+        model.parameters(),
+        lr=0.01,
+        momentum=0.9,
+        weight_decay=1e-4
+    )
     
-    # Aggressive learning rate schedule
+    # Step LR scheduler
     scheduler = optim.lr_scheduler.OneCycleLR(
         optimizer,
-        max_lr=0.01,  # Higher max learning rate
+        max_lr=0.1,
         steps_per_epoch=len(train_loader),
         epochs=1,
-        pct_start=0.2,  # Faster warmup
-        anneal_strategy='cos',
-        div_factor=10.0,
-        final_div_factor=100.0
+        pct_start=0.1,
+        anneal_strategy='linear'
     )
     
     model.train()
@@ -89,7 +103,6 @@ def train(num_epochs=1, show_plot=False):
     total = 0
     running_loss = 0.0
     batch_accuracies = []
-    num_steps = len(train_loader)
     
     pbar = tqdm(train_loader, desc='Training')
     
@@ -98,17 +111,13 @@ def train(num_epochs=1, show_plot=False):
     
     for batch_idx, (data, target) in enumerate(pbar):
         data, target = data.to(device), target.to(device)
-        optimizer.zero_grad()
         
+        optimizer.zero_grad()
         output = model(data)
         loss = criterion(output, target)
         loss.backward()
-        
-        # Modified gradient clipping
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)  # Increased threshold
-        
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.5)
         optimizer.step()
-        scheduler.step()
         
         # Calculate batch accuracy
         _, predicted = torch.max(output.data, 1)
@@ -124,20 +133,22 @@ def train(num_epochs=1, show_plot=False):
         # Calculate running accuracy
         running_accuracy = 100 * correct / total
         avg_loss = running_loss / (batch_idx + 1)
-        lr = optimizer.param_groups[0]['lr']
         
         # Store and print batch accuracy
         batch_accuracies.append(batch_accuracy)
         if batch_idx % 10 == 0:
-            print(f"Batch {batch_idx:3d}: Accuracy = {batch_accuracy:6.2f}% | Running Accuracy = {running_accuracy:6.2f}%")
+            print(f"Batch {batch_idx:3d}: Accuracy = {batch_accuracy:6.2f}% | Running Accuracy = {running_accuracy:6.2f}% | LR = {optimizer.param_groups[0]['lr']:.6f}")
         
         # Update progress bar
+        current_lr = optimizer.param_groups[0]['lr']  # Get current learning rate
         pbar.set_postfix({
             'Loss': f'{avg_loss:.4f}',
             'Batch Acc': f'{batch_accuracy:.2f}%',
             'Running Acc': f'{running_accuracy:.2f}%',
-            'LR': f'{lr:.6f}'
+            'LR': f'{current_lr:.6f}'
         })
+        
+        scheduler.step()
     
     pbar.close()
     
@@ -160,11 +171,29 @@ def train(num_epochs=1, show_plot=False):
     torch.save(model.state_dict(), model_path)
     print(f'Model saved as: {model_path}')
     
+    # After training, evaluate on test set
+    print("\nEvaluating on test set...")
+    test_transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.1307,), (0.3081,))
+    ])
+    
+    test_dataset = datasets.MNIST('./data', train=False, download=True, transform=test_transform)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1000, shuffle=False)
+    
+    test_accuracy = evaluate_model(model, test_loader, device)
+    
+    print("\nFinal Results:")
+    print("-" * 50)
+    print(f'Training Accuracy: {final_accuracy:.2f}%')
+    print(f'Test Accuracy: {test_accuracy:.2f}%')
+    print(f'Model saved as: {model_path}')
+    
 if __name__ == "__main__":
     # Add argument parser
     parser = argparse.ArgumentParser(description='MNIST Training Script')
-    parser.add_argument('--epochs', type=int, default=1,
-                      help='number of epochs to train (default: 1)')
+    parser.add_argument('--epochs', type=int, default=15,
+                      help='number of epochs to train (default: 15)')
     parser.add_argument('--show-plot', action='store_true',
                       help='show augmented images plot')
     
