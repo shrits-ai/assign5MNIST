@@ -63,14 +63,23 @@ The project includes comprehensive testing:
 ## Project Structure
 .
 ├── model/
+|
 │ ├── init.py
+| |
 │ └── mnist_model.py
+|
 ├── tests/
+| |
 │ └── test_model.py
+|
 ├── train.py
+|
 ├── requirements.txt
-└── .github/
+|
+└── .github/|
+|
 └── workflows/
+|
 └── ml-pipeline.yml
 
 ## Usage
