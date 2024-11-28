@@ -40,13 +40,21 @@ The model follows a simple yet effective CNN architecture:
   - Random rotation (±7°)
   - Normalization (mean=0.1307, std=0.3081)
   These augmentations are:
+
      Minimal but effective for MNIST
+    
     Preserve digit readability
+    
     Help prevent overfitting
+    
     Improve model generalization
+    
 We keep the augmentations light because:
+
     MNIST digits are sensitive to heavy transformations
+    
     Too much augmentation could make digits unrecognizable
+    
 Simple augmentations are often sufficient for MNIST
 - **Batch Size**: 64
 
