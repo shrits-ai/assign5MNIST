@@ -1,13 +1,22 @@
 # MNIST Digit Classification with PyTorch
 This README provides:
+
 Clear model architecture description
+
 Training details
+
 Test case explanations
+
 Usage instructions
+
 Project structure
+
 Performance metrics
+
 All requirements and constraints
+
 This project implements a CNN model for MNIST digit classification with specific constraints and requirements.
+
 
 ## Model Architecture
 
