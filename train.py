@@ -6,79 +6,121 @@ from model.mnist_model import MNISTModel
 from datetime import datetime
 import os
 import ssl
+import matplotlib.pyplot as plt
+import numpy as np
+from PIL import Image
 
-def train(num_epochs=5):
+def show_augmented_images(original_dataset, augmented_dataset, num_images=5):
+    fig, axes = plt.subplots(2, num_images, figsize=(15, 6))
+    
+    # Get random samples
+    indices = np.random.randint(0, len(original_dataset), num_images)
+    
+    for i, idx in enumerate(indices):
+        # Original image
+        img, _ = original_dataset[idx]
+        if isinstance(img, torch.Tensor):
+            img = img.squeeze().numpy()  # Remove channel dimension and convert to numpy
+        
+        # Augmented image
+        aug_img, _ = augmented_dataset[idx]
+        aug_img = aug_img.squeeze().numpy()  # Remove channel dimension
+        
+        # Display images
+        axes[0, i].imshow(img, cmap='gray')
+        axes[0, i].axis('off')
+        axes[0, i].set_title('Original')
+        
+        axes[1, i].imshow(aug_img, cmap='gray')
+        axes[1, i].axis('off')
+        axes[1, i].set_title('Augmented')
+    
+    plt.tight_layout()
+    plt.show()
+
+def train(num_epochs=1):
     ssl._create_default_https_context = ssl._create_unverified_context
     
     device = torch.device('cpu')
     
-    # Simpler data augmentation
+    # Original dataset without transforms
+    original_dataset = datasets.MNIST('./data', train=True, download=True, 
+                                   transform=transforms.ToTensor())
+    
+    # Enhanced data augmentation
     transform = transforms.Compose([
         transforms.RandomRotation(10),
+        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.95, 1.05)),
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
     ])
     
+    # Dataset with transforms
     train_dataset = datasets.MNIST('./data', train=True, download=True, transform=transform)
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32)  # Smaller batch size
+    
+    # Show augmented images
+    print("Displaying original and augmented images...")
+    show_augmented_images(original_dataset, train_dataset)
+    
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=64, shuffle=True)
     
     model = MNISTModel().to(device)
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)  # Standard learning rate
     
-    best_accuracy = 0.0
-    best_model_path = None
+    # Increased initial learning rate
+    optimizer = optim.Adam(model.parameters(), lr=0.01, betas=(0.9, 0.999), eps=1e-8)
     
-    # Training loop with epochs
-    for epoch in range(num_epochs):
-        model.train()
-        correct = 0
-        total = 0
-        running_loss = 0.0
-        
-        print(f'\nEpoch {epoch+1}/{num_epochs}')
-        print('-' * 60)
-        
-        for batch_idx, (data, target) in enumerate(train_loader):
-            data, target = data.to(device), target.to(device)
-            optimizer.zero_grad()
-            
-            output = model(data)
-            loss = criterion(output, target)
-            loss.backward()
-            optimizer.step()
-            
-            # Calculate accuracy
-            _, predicted = torch.max(output.data, 1)
-            total += target.size(0)
-            correct += (predicted == target).sum().item()
-            running_loss += loss.item()
-            
-            if batch_idx % 100 == 0:
-                accuracy = 100 * correct / total
-                avg_loss = running_loss / (batch_idx + 1)
-                print(f'Batch {batch_idx}/{len(train_loader)}, Loss: {avg_loss:.4f}, Accuracy: {accuracy:.2f}%')
-        
-        # Epoch statistics
-        epoch_accuracy = 100 * correct / total
-        epoch_loss = running_loss / len(train_loader)
-        print(f'\nEpoch {epoch+1} completed:')
-        print(f'Loss: {epoch_loss:.4f}')
-        print(f'Training Accuracy: {epoch_accuracy:.2f}%')
-        
-        # Save best model
-        if epoch_accuracy > best_accuracy:
-            best_accuracy = epoch_accuracy
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            if not os.path.exists('saved_models'):
-                os.makedirs('saved_models')
-            best_model_path = f'saved_models/mnist_model_{timestamp}_epoch{epoch+1}_acc{epoch_accuracy:.1f}.pth'
-            torch.save(model.state_dict(), best_model_path)
-            print(f'New best model saved: {best_model_path}')
+    # More aggressive learning rate schedule
+    scheduler = optim.lr_scheduler.OneCycleLR(
+        optimizer,
+        max_lr=0.01,
+        steps_per_epoch=len(train_loader),
+        epochs=1,
+        pct_start=0.1,  # Reach max_lr faster
+        div_factor=25.0,  # Larger range for learning rate
+        final_div_factor=1000.0
+    )
     
+    model.train()
+    correct = 0
+    total = 0
+    running_loss = 0.0
+    
+    for batch_idx, (data, target) in enumerate(train_loader):
+        data, target = data.to(device), target.to(device)
+        optimizer.zero_grad()
+        
+        output = model(data)
+        loss = criterion(output, target)
+        loss.backward()
+        
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.5)
+        
+        optimizer.step()
+        scheduler.step()
+        
+        _, predicted = torch.max(output.data, 1)
+        total += target.size(0)
+        correct += (predicted == target).sum().item()
+        running_loss += loss.item()
+        
+        if batch_idx % 50 == 0:
+            accuracy = 100 * correct / total
+            avg_loss = running_loss / (batch_idx + 1)
+            print(f'Batch {batch_idx}/{len(train_loader)}, Loss: {avg_loss:.4f}, Accuracy: {accuracy:.2f}%')
+    
+    final_accuracy = 100 * correct / total
+    final_loss = running_loss / len(train_loader)
     print(f'\nTraining completed:')
-    print(f'Best Training Accuracy: {best_accuracy:.2f}%')
-    print(f'Best model saved as: {best_model_path}')
+    print(f'Final Loss: {final_loss:.4f}')
+    print(f'Final Training Accuracy: {final_accuracy:.2f}%')
+    
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    if not os.path.exists('saved_models'):
+        os.makedirs('saved_models')
+    model_path = f'saved_models/mnist_model_{timestamp}_acc{final_accuracy:.1f}.pth'
+    torch.save(model.state_dict(), model_path)
+    print(f'Model saved as: {model_path}')
     
 if __name__ == "__main__":
-    train(num_epochs=1)  
+    train()
