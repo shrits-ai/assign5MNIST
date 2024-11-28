@@ -81,6 +81,9 @@ The project includes comprehensive testing:
    - `test_model_accuracy`: Ensures accuracy > 80%
    - `test_model_accuracy_95`: Verifies accuracy > 95%
 
+4. **Data Augmentation Test**:
+  - `test_image_augmentation`: Verfies augmention is applied properly
+
 
 
 ## Usage
